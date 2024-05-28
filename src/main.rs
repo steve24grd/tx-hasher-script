@@ -1,44 +1,6 @@
-use ic_ledger_types::{AccountIdentifier, Memo, Transaction, Timestamp, Operation, Tokens};
-use serde_cbor;
-use sha2::{Sha256, Digest};
-use std::fmt;
-use std::hash::Hash;
-use std::marker::PhantomData;
+use ic_ledger_types::{Memo, Tokens};
+use hasher::ledger::{Transaction, TimeStamp, AccountIdentifier, LedgerTransaction};
 
-const HASH_LENGTH: usize = 32;
-
-#[derive(Clone, Hash, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct HashOf<T> {
-    hash: [u8; HASH_LENGTH],
-    phantom: PhantomData<T>,
-}
-
-
-impl<T> HashOf<T> {
-    pub fn new(bs: [u8; HASH_LENGTH]) -> Self {
-        HashOf {
-            hash: bs,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T> fmt::Display for HashOf<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.hash))
-    }
-}
-
-fn hash_transaction(tx: &Transaction) -> HashOf<Transaction> {
-    let serialized = serde_cbor::ser::to_vec_packed(&tx).unwrap();
-
-    let mut state = Sha256::new();
-    state.update(&serialized);
-
-    let result = state.finalize();
-    let fixed_result: [u8; HASH_LENGTH] = result.into();
-    HashOf::new(fixed_result)
-}
 
 fn main() {
     // Create sample data
@@ -61,23 +23,18 @@ fn main() {
         }
     };
 
-    let transaction = Transaction {
-        memo: Memo(0),
-        operation: Some(Operation::Transfer {
-            from: from_account,
-            to: to_account,
-            amount: Tokens::from_e8s(48980000),
-            fee: Tokens::from_e8s(10000),
-        }),
-        created_at_time: Timestamp {
+    let tx_hash = Transaction::new(
+        from_account,
+        to_account,
+        None,
+        Tokens::from_e8s(48980000),
+        Tokens::from_e8s(10000),
+        Memo(0),
+        TimeStamp {
             timestamp_nanos: 1716563439433251852,
         },
-        icrc1_memo: None,
-    };
-
-    // Hash the transaction
-    let hash = hash_transaction(&transaction);
+    ).hash();
 
     // Print the hash
-    println!("Tx Hash: {}", hash);
+    println!("Tx Hash: {}", tx_hash);
 }
